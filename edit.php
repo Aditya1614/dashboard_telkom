@@ -10,19 +10,29 @@ if (!isset($_SESSION['user'])) {
 
 // Ambil ID (instant) dari URL
 $instant = isset($_GET['instant']) ? intval($_GET['instant']) : null;
-$currentTable = $_SESSION['currentTable'] ?? 'days';
+// $currentTable = $_SESSION['currentTable'] ?? 'days';
+$currentTable = isset($_SESSION['currentTable']) ? $_SESSION['currentTable'] : 'days';
 
 // Ambil daftar kolom yang dipilih admin
-// $selectedColumns = $_SESSION['selectedColumns'] ?? [];
-$columnResult = $conn->query("SHOW COLUMNS FROM $currentTable");
-if (!$columnResult) {
-    die("Error executing query: " . $conn->error);
-}
-$selectedColumns = [];
-while ($row = $columnResult->fetch_assoc()) {
-    $selectedColumns[] = $row['Field'];
-}
+$selectedColumns = isset($_SESSION['selectedColumns']) ? $_SESSION['selectedColumns'] : array();
 
+// Jika admin tidak memilih kolom, ambil semua kolom dari tabel 'selected_columns'
+if (empty($selectedColumns)) {
+    $sql = "SELECT column_names FROM selected_columns WHERE table_name = '$currentTable'";
+    $result = $conn->query($sql);
+
+    if ($result && $row = $result->fetch_assoc()) {
+        // Jika ada data kolom yang tersimpan, gunakan kolom tersebut
+        $selectedColumns = explode(',', $row['column_names']);
+    } else {
+        // Jika tidak ada data kolom yang tersimpan, tampilkan semua kolom
+        $columnResult = $conn->query("SHOW COLUMNS FROM $currentTable");
+        $selectedColumns = array();
+        while ($row = $columnResult->fetch_assoc()) {
+            $selectedColumns[] = $row['Field'];
+        }
+    }
+}
 
 // Jika instant tidak valid, redirect kembali ke dashboard
 if (!$instant) {
@@ -42,7 +52,7 @@ $item = $result->fetch_assoc();
 // Jika form disubmit (POST), lakukan update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Buat array untuk menyimpan nilai yang akan diupdate
-    $updates = [];
+    $updates = array();
     foreach ($selectedColumns as $column) {
         $value = $_POST[$column];
         $updates[] = "$column = '" . $conn->real_escape_string($value) . "'";
@@ -59,13 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         echo "Error updating record: " . $conn->error;
     }
-}
-
-// Ambil nama kolom dari tabel
-$columnResult = $conn->query("SHOW COLUMNS FROM $currentTable");
-$columnNames = [];
-while ($row = $columnResult->fetch_assoc()) {
-    $columnNames[] = $row['Field'];
 }
 
 // Close connection
@@ -144,8 +147,8 @@ $conn->close();
 <body>
     <h1>Edit Bike Sharing Data</h1>
     <form action="edit.php?instant=<?= $instant ?>" method="POST">
-        <?php foreach ($columnNames as $column): ?>
-            <?php if (in_array($column, $selectedColumns)): ?>
+        <?php foreach ($selectedColumns as $column): ?>
+            <?php if (isset($item[$column])): ?>
                 <?php if ($column === 'dteday'): ?>
                     <label for="dteday">Date (dteday):</label>
                     <input type="date" id="dteday" name="dteday" value="<?= htmlspecialchars($item['dteday']) ?>">

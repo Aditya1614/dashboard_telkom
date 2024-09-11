@@ -13,7 +13,8 @@ if (isset($_POST['columns'])) {
     // Simpan juga pilihan kolom ke database jika pengguna adalah admin
     if ($_SESSION['role'] === 'admin') {
         $adminId = $_SESSION['user_id'];  // Asumsikan admin_id disimpan di session
-        $currentTable = $_SESSION['currentTable'] ?? 'days';  // Nama tabel saat ini
+        // $currentTable = $_SESSION['currentTable'] ?? 'days';  // Nama tabel saat ini
+        $currentTable = isset($_SESSION['currentTable']) ? $_SESSION['currentTable'] : 'days';
 
         // Gabungkan kolom yang dipilih menjadi string yang dipisahkan koma
         $columnsString = implode(',', $selectedColumns);

@@ -3,7 +3,7 @@
 $host = 'localhost';
 $user = 'root';
 $password = '';
-$dbname = 'dummy_telkom';
+$dbname = 'dashboard_telkom';
 
 // Create a connection
 $conn = new mysqli($host, $user, $password, $dbname);

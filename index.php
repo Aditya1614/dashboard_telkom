@@ -2,19 +2,26 @@
 session_start();
 include 'db_connect.php';
 
+if (!$conn) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = $_POST['username'];
     $password = $_POST['password'];
 
     $sql = "SELECT * FROM users WHERE username=?";
     $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        die("Prepare failed: " . $conn->error); // Debugging statement
+    }
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
 
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
-        if (password_verify($password, $user['password'])) {
+        if ($password === $user['password']) {
             session_regenerate_id(true);
             $_SESSION['user'] = $user['username'];
             $_SESSION['role'] = $user['role'];
@@ -28,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     $stmt->close();
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="id">

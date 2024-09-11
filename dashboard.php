@@ -13,31 +13,55 @@ $role = $_SESSION['role'];
 // Batasi akses dropdown untuk admin
 $adminAccess = ($role === 'admin');
 
-
 // Handle the current table (default 'days')
-$currentTable = $_SESSION['currentTable'] ?? 'days';
+$currentTable = isset($_SESSION['currentTable']) ? $_SESSION['currentTable'] : 'days';
 
 // Pagination
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $limit = isset($_SESSION['limit']) ? intval($_SESSION['limit']) : 10;
 $offset = ($page - 1) * $limit;
 
-// Get columns
-// Get columns
+// Get columns from the database
 $columnResult = $conn->query("SHOW COLUMNS FROM $currentTable");
 if (!$columnResult) {
     die("Error executing query: " . $conn->error);
 }
-$columnNames = [];
+$columnNames = array();
 while ($row = $columnResult->fetch_assoc()) {
     $columnNames[] = $row['Field'];
 }
 
 // Handle selected columns
 if ($adminAccess) {
-    $selectedColumns = $_SESSION['selectedColumns'] ?? $columnNames;
+    // Jika admin baru saja memilih kolom melalui form dropdown
+    if (isset($_POST['columns'])) {
+        // Simpan pilihan kolom ke session
+        $_SESSION['selectedColumns'] = $_POST['columns'];
+        $selectedColumns = $_POST['columns'];
+    } else {
+        // Cek apakah admin sudah menyimpan kolom di session sebelumnya
+        if (isset($_SESSION['selectedColumns']) && !empty($_SESSION['selectedColumns'])) {
+            $selectedColumns = $_SESSION['selectedColumns'];
+        } else {
+            // Jika belum ada di session, cek di tabel 'selected_columns'
+            $sql = "SELECT column_names FROM selected_columns WHERE table_name = '$currentTable'";
+            $result = $conn->query($sql);
+
+            if (!$result) {
+                die("Error executing query: " . $conn->error);
+            }
+
+            if ($row = $result->fetch_assoc()) {
+                // Jika ada data di database, gunakan kolom tersebut
+                $selectedColumns = explode(',', $row['column_names']);
+            } else {
+                // Jika tidak ada data yang disimpan, tampilkan semua kolom
+                $selectedColumns = $columnNames;
+            }
+        }
+    }
 } else {
-    // Ambil kolom yang disimpan dalam 'column_names' dari tabel 'selected_columns'
+    // Logika untuk user biasa (hanya lihat kolom yang disimpan di database)
     $sql = "SELECT column_names FROM selected_columns WHERE table_name = '$currentTable'";
     $result = $conn->query($sql);
 
@@ -45,25 +69,25 @@ if ($adminAccess) {
         die("Error executing query: " . $conn->error);
     }
 
-    $selectedColumns = [];
+    $selectedColumns = array();
     if ($row = $result->fetch_assoc()) {
-        // Pecah string 'column_names' menjadi array, jika ada kolom yang dipisahkan koma
+        // Pecah string 'column_names' menjadi array
         $selectedColumns = explode(',', $row['column_names']);
     }
 
-    // Jika admin belum memilih kolom, tampilkan semua kolom secara default
+    // Jika tidak ada kolom yang tersimpan, tampilkan semua kolom
     if (empty($selectedColumns)) {
         $selectedColumns = $columnNames;
     }
 }
-
 
 // Query data with pagination
 $totalResult = $conn->query("SELECT COUNT(*) as total FROM $currentTable");
 if (!$totalResult) {
     die("Error executing query: " . $conn->error);
 }
-$totalRows = $totalResult->fetch_assoc()['total'];
+$row = $totalResult->fetch_assoc(); 
+$totalRows = $row['total']; 
 $totalPages = ceil($totalRows / $limit);
 
 $sql = "SELECT " . implode(',', $selectedColumns) . " FROM $currentTable LIMIT $limit OFFSET $offset";
@@ -71,15 +95,15 @@ $dataResult = $conn->query($sql);
 if (!$dataResult) {
     die("Error executing query: " . $conn->error);
 }
-$data = [];
+$data = array();
 while ($row = $dataResult->fetch_assoc()) {
     $data[] = $row;
 }
 
-
 // Close connection
 $conn->close();
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
