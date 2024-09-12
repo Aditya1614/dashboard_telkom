@@ -36,7 +36,7 @@ if (empty($selectedColumns)) {
 
 // Jika instant tidak valid, redirect kembali ke dashboard
 if (!$instant) {
-    header("Location: dashboard.php");
+    header("Location: index.php");
     exit();
 }
 
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Query untuk update data
     $sqlUpdate = "UPDATE $currentTable SET $updateQuery WHERE instant = $instant";
     if ($conn->query($sqlUpdate)) {
-        header("Location: dashboard.php");  // Redirect kembali ke dashboard setelah update berhasil
+        header("Location: index.php");  // Redirect kembali ke dashboard setelah update berhasil
         exit();
     } else {
         echo "Error updating record: " . $conn->error;
@@ -79,6 +79,11 @@ $conn->close();
 <html lang="en">
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Bike Sharing Data</title>
+    <style>
+        <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Bike Sharing Data</title>
@@ -144,20 +149,23 @@ $conn->close();
     </style>
 </head>
 
+    </style>
+</head>
+
 <body>
     <h1>Edit Bike Sharing Data</h1>
-    <form action="edit.php?instant=<?= $instant ?>" method="POST">
+    <form action="edit.php?instant=<?php echo $instant ?>" method="POST">
         <?php foreach ($selectedColumns as $column): ?>
             <?php if (isset($item[$column])): ?>
                 <?php if ($column === 'dteday'): ?>
                     <label for="dteday">Date (dteday):</label>
-                    <input type="date" id="dteday" name="dteday" value="<?= htmlspecialchars($item['dteday']) ?>">
+                    <input type="date" id="dteday" name="dteday" value="<?php echo htmlspecialchars(date('Y-m-d', strtotime($item['dteday']))) ?>">
                 <?php else: ?>
-                    <label for="<?= htmlspecialchars($column) ?>"><?= htmlspecialchars($column) ?>:</label>
-                    <input type="text" id="<?= htmlspecialchars($column) ?>" name="<?= htmlspecialchars($column) ?>" value="<?= htmlspecialchars($item[$column]) ?>">
+                    <label for="<?php echo htmlspecialchars($column) ?>"><?php echo htmlspecialchars($column) ?>:</label>
+                    <input type="text" id="<?php echo htmlspecialchars($column) ?>" name="<?php echo htmlspecialchars($column) ?>" value="<?php echo htmlspecialchars($item[$column]) ?>">
                 <?php endif; ?>
             <?php else: ?>
-                <input type="hidden" id="<?= htmlspecialchars($column) ?>" name="<?= htmlspecialchars($column) ?>" value="<?= htmlspecialchars($item[$column]) ?>">
+                <input type="hidden" id="<?php echo htmlspecialchars($column) ?>" name="<?php echo htmlspecialchars($column) ?>" value="<?php echo htmlspecialchars($item[$column]) ?>">
             <?php endif; ?>
         <?php endforeach; ?>
 

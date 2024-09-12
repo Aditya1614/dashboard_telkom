@@ -41,7 +41,7 @@ if (isset($_POST['columns'])) {
     $limit = isset($_SESSION['limit']) ? intval($_SESSION['limit']) : 10;
 
     // Redirect kembali ke dashboard dengan limit yang sesuai
-    header('Location: dashboard.php?limit=' . $limit);
+    header('Location: index.php?limit=' . $limit);
     exit();
 } else {
     echo "No columns selected.";

@@ -1,32 +1,49 @@
 <?php
+session_start();
 include 'db_connect.php';
+
+if (!$conn) {
+    die("Connection failed: " . $conn->connect_error);
+}
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = $_POST['username'];
     $password = $_POST['password'];
-    $role = $_POST['role']; // Mengambil peran (user atau admin) dari form
 
-    $sql = "INSERT INTO users (username, password, role) VALUES (?, ?, ?)";
+    $sql = "SELECT username, password, role FROM users WHERE username=?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sss", $username, $password, $role);
-
-    if ($stmt->execute()) {
-        // Use header before any output
-        header("Location: login.php");
-        exit(); // It's important to call exit() to stop further execution
-    } else {
-        echo "<div class='error'>Pendaftaran gagal!</div>";
+    if (!$stmt) {
+        die("Prepare failed: " . $conn->error);
     }
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
     
+    // Use bind_result to fetch the columns
+    $stmt->bind_result($db_username, $db_password, $db_role);
+    
+    if ($stmt->fetch()) {
+        if ($password === $db_password) {
+            session_regenerate_id(true);
+            $_SESSION['user'] = $db_username;
+            $_SESSION['role'] = $db_role;
+            header("Location: index.php");
+            exit();
+        } else {
+            echo "<div class='error'>Password salah!</div>";
+        }
+    } else {
+        echo "<div class='error'>Pengguna tidak ditemukan!</div>";
+    }
     $stmt->close();
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register</title>
+    <title>Login</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -37,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             height: 100vh;
             margin: 0;
         }
-        .register-container {
+        .login-container {
             background-color: #fff;
             padding: 20px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -49,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             margin-bottom: 20px;
             color: #333;
         }
-        input[type="text"], input[type="password"], select {
+        input[type="text"], input[type="password"] {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
@@ -69,48 +86,35 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         button:hover {
             background-color: #218838;
         }
-        .error, .success {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
-            text-align: center;
-        }
         .error {
-            background-color: #f8d7da;
-            color: #721c24;
+            color: red;
+            margin-bottom: 10px;
         }
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .login-link {
+        .register-link {
             margin-top: 15px;
             display: block;
         }
-        .login-link a {
+        .register-link a {
             color: #007bff;
             text-decoration: none;
         }
-        .login-link a:hover {
+        .register-link a:hover {
             text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <div class="register-container">
-        <h2>Daftar</h2>
+    <div class="login-container">
+        <h2>Login</h2>
         <form method="POST" action="">
             <input type="text" name="username" placeholder="Username" required><br>
             <input type="password" name="password" placeholder="Password" required><br>
-            <select id="role" name="role" required>
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-            </select><br><br>
-            <button type="submit">Daftar</button>
+            <button type="submit">Login</button>
         </form>
-        <div class="login-link">
-            Sudah punya akun? <a href="login.php">Login</a>
+        <div class="register-link">
+            Belum punya akun? <a href="register.php">Daftar</a>
         </div>
     </div>
 </body>
 </html>
+

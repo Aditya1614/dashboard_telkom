@@ -5,5 +5,5 @@ session_start();
 $_SESSION['limit'] = isset($_POST['limit']) ? intval($_POST['limit']) : 10;
 
 // Redirect back to the main page
-header('Location: dashboard.php');
+header('Location: index.php');
 exit;
