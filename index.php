@@ -101,7 +101,7 @@ foreach ($_SESSION['selectedColumns'] as $column) {
 }
 echo "</ul>";
 
-
+echo $currentTable;
 
 // Pagination
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
@@ -118,8 +118,14 @@ while ($row = $columnResult->fetch_assoc()) {
     $columnNames[] = $row['Field'];
 }
 
+// Set kolom ID yang dipilih
+if (isset($_POST['selected_id_column'])) {
+    $_SESSION['selected_id_column'] = $_POST['selected_id_column'];
+}
 
-// Handle selected columns
+// Kolom ID yang dipilih
+$selectedIdColumn = isset($_SESSION['selected_id_column']) ? $_SESSION['selected_id_column'] : 'instant';
+
 // Handle selected columns
 if ($adminAccess) {
     if (isset($_POST['columns'])) {
@@ -393,7 +399,6 @@ $conn->close();
         background-color: #45a049;
     }
 
-    /* Mengatur tombol dan input agar sejajar */
     button,
     input[type="text"] {
         padding: 10px 16px;
@@ -417,76 +422,93 @@ $conn->close();
 <body>
     <h1>Anda masuk sebagai: <?php echo $loggedIn ? $_SESSION['user'] : 'Visitor'; ?></h1>
 
-   <div class="form-container">
-    <!-- Jika admin, tampilkan menu admin -->
-    <?php if ($adminAccess) : ?>
-    <div class="form-item">
-        <form id="columnForm" action="show.php" method="POST">
-            <div class="dropdown">
-                <label for="columns">Select Columns</label>
-                <button class="dropbtn">Select Columns</button>
-                <div class="dropdown-content">
-                    <?php foreach ($columnNames as $column): ?>
-                    <label>
-                        <input type="checkbox" name="columns[]" value="<?php echo $column; ?>" <?php echo in_array($column, $selectedColumns) ? 'checked' : ''; ?>>
-                        <?php echo $column; ?>
-                    </label><br>
-                    <?php endforeach; ?>
-                    <input type="submit" value="Update" class="dropdown-submit">
+    <div class="form-container">
+        <!-- Jika admin, tampilkan menu admin -->
+        <?php if ($adminAccess) : ?>
+        <div class="form-item">
+            <form id="columnForm" action="show.php" method="POST">
+                <div class="dropdown">
+                    <label for="columns">Select Columns</label>
+                    <button class="dropbtn">Select Columns</button>
+                    <div class="dropdown-content">
+                        <?php foreach ($columnNames as $column): ?>
+                        <label>
+                            <input type="checkbox" name="columns[]" value="<?php echo $column; ?>"
+                                <?php echo in_array($column, $selectedColumns) ? 'checked' : ''; ?>>
+                            <?php echo $column; ?>
+                        </label><br>
+                        <?php endforeach; ?>
+                        <input type="submit" value="Update" class="dropdown-submit">
+                    </div>
                 </div>
-            </div>
-        </form>
-    </div>
+            </form>
+        </div>
 
-    <div class="form-item">
-        <form action="switch.php" method="POST">
-            <label for="table">Pilih Tabel:</label>
-            <select name="table" id="table" class="styled-dropdown" onchange="this.form.submit()">
-                <option value="days" <?php echo $currentTable == 'days' ? 'selected' : ''; ?>>Days</option>
-                <option value="hours" <?php echo $currentTable == 'hours' ? 'selected' : ''; ?>>Hours</option>
-            </select>
-        </form>
-    </div>
-    <?php endif; ?>
+        <div class="form-item">
+            <form action="switch.php" method="POST">
+                <label for="table">Pilih Tabel:</label>
+                <select name="table" id="table" class="styled-dropdown" onchange="this.form.submit()">
+                    <option value="days" <?php echo $currentTable == 'days' ? 'selected' : ''; ?>>Days</option>
+                    <option value="hours" <?php echo $currentTable == 'hours' ? 'selected' : ''; ?>>Hours</option>
+                </select>
+            </form>
+        </div>
 
-    <!-- Dropdown untuk memilih limit data -->
-    <div class="form-item">
-        <form id="limitForm" action="updateLimit.php" method="POST">
-            <label for="limit">Select Data Limit:</label>
-            <select id="limit" name="limit" class="styled-dropdown" onchange="this.form.submit()">
-                <option value="10" <?php echo $limit == 10 ? 'selected' : ''; ?>>10</option>
-                <option value="20" <?php echo $limit == 20 ? 'selected' : ''; ?>>20</option>
-                <option value="30" <?php echo $limit == 30 ? 'selected' : ''; ?>>30</option>
-            </select>
-        </form>
-    </div>
-
-    <!-- Form for searching data by selected column -->
-    <div class="form-item">
-        <form id="searchForm" action="" method="GET">
-            <label for="searchColumn">Select Column to Search:</label>
-            <select id="searchColumn" name="searchColumn" class="styled-dropdown">
-                <?php foreach ($selectedColumns as $column) : ?>
-                <option value="<?php echo $column; ?>" <?php echo ($searchColumn == $column) ? 'selected' : ''; ?>>
-                    <?php echo $column; ?>
+        <form method="POST" action="index.php">
+            <label for="id_column">Pilih Kolom ID:</label>
+            <select name="selected_id_column" id="id_column" class="styled-dropdown"  onchange="this.form.submit()">
+                <?php foreach ($selectedColumns as $column): ?>
+                <option value="<?php echo htmlspecialchars($column); ?>"
+                    <?php if ($column == $selectedIdColumn) echo 'selected'; ?>>
+                    <?php echo htmlspecialchars($column); ?>
                 </option>
                 <?php endforeach; ?>
             </select>
-
-            <label for="searchValue" style="margin-top: 10px;">Search Value:</label>
-            <input type="text" id="searchValue" name="searchValue" value="<?php echo htmlspecialchars($searchValue); ?>" required>
-
-            <button type="submit" style="margin-top: 10px;">Search</button>
-
-            <!-- Tombol Reset hanya ditampilkan jika sedang menampilkan hasil pencarian -->
-            <?php if ($searchColumn !== null && $searchValue !== null): ?>
-            <a href="?reset=true" class="reset-btn" style="margin-left: 10px; margin-top: 10px;">
-                <button type="button">Reset</button>
-            </a>
-            <?php endif; ?>
         </form>
+
+
+
+        <?php endif; ?>
+
+        <!-- Dropdown untuk memilih limit data -->
+        <div class="form-item">
+            <form id="limitForm" action="updateLimit.php" method="POST">
+                <label for="limit">Select Data Limit:</label>
+                <select id="limit" name="limit" class="styled-dropdown" onchange="this.form.submit()">
+                    <option value="10" <?php echo $limit == 10 ? 'selected' : ''; ?>>10</option>
+                    <option value="20" <?php echo $limit == 20 ? 'selected' : ''; ?>>20</option>
+                    <option value="30" <?php echo $limit == 30 ? 'selected' : ''; ?>>30</option>
+                </select>
+            </form>
+        </div>
+
+        <!-- Form for searching data by selected column -->
+        <div class="form-item">
+            <form id="searchForm" action="" method="GET">
+                <label for="searchColumn">Search by:</label>
+                <select id="searchColumn" name="searchColumn" class="styled-dropdown">
+                    <?php foreach ($selectedColumns as $column) : ?>
+                    <option value="<?php echo $column; ?>" <?php echo ($searchColumn == $column) ? 'selected' : ''; ?>>
+                        <?php echo $column; ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+
+                <label for="searchValue" style="margin-top: 10px;">Search Value:</label>
+                <input type="text" id="searchValue" name="searchValue"
+                    value="<?php echo htmlspecialchars($searchValue); ?>" required>
+
+                <button type="submit" style="margin-top: 10px;">Search</button>
+
+                <!-- Tombol Reset hanya ditampilkan jika sedang menampilkan hasil pencarian -->
+                <?php if ($searchColumn !== null && $searchValue !== null): ?>
+                <a href="?reset=true" class="reset-btn" style="margin-left: 10px; margin-top: 10px;">
+                    <button type="button">Reset</button>
+                </a>
+                <?php endif; ?>
+            </form>
+        </div>
     </div>
-</div>
     <?php 
     if (empty($data)) {
         echo "No data found in the table.";
@@ -510,7 +532,8 @@ $conn->close();
             echo "<td>" . htmlspecialchars($row[$column]) . "</td>";
         }
         if ($loggedIn){
-        echo "<td><a href=\"edit.php?instant=" . urlencode($row['instant']) . "&columns=" . urlencode(implode(',', $selectedColumns)) . "\">Edit</a></td>";
+            echo "<td><a href=\"edit.php?id=" . urlencode($row[$selectedIdColumn]) . "&columns=" . urlencode(implode(',', $selectedColumns)) . "\">Edit</a></td>";
+
         }
         echo "</tr>";
     }
