@@ -8,12 +8,6 @@ $loggedIn = isset($_SESSION['user']);
 $role = $loggedIn ? $_SESSION['role'] : null;
 $adminAccess = ($role === 'admin');
 
-// Jika ingin mengarahkan ke halaman login untuk admin, uncomment baris berikut:
-// if (!$loggedIn && !$adminAccess) {
-//     header("Location: login.php");
-//     exit();
-// }
-
 include 'db_connect.php';
 
 // Handle search form
@@ -42,66 +36,87 @@ if (isset($_GET['reset']) && $_GET['reset'] === 'true') {
     exit;
 }
 
-// Debugging: Lihat session saat ini
-// var_dump($_SESSION['currentTable']);
-
-// Ambil tabel saat ini dari session, default adalah 'days'
-// $currentTable = isset($_SESSION['currentTable']) ? $_SESSION['currentTable'] : 'days';
-// Query untuk mendapatkan tabel yang terakhir diupdate
-// Jika user memilih tabel dari form, gunakan tabel tersebut
 // Handle switch table dari switch.php
+$jsonFilePath = 'selected_columns.json';
+
+// Cek apakah ada tabel yang dipilih dari form
 if (isset($_POST['table'])) {
     $currentTable = $_POST['table'];
     $_SESSION['currentTable'] = $currentTable;
-    // unset($_SESSION['selectedColumns']);
-    // session_destroy();
 } elseif (isset($_SESSION['currentTable'])) {
     $currentTable = $_SESSION['currentTable'];
 } else {
-    $sqlLastUpdatedTable = "SELECT table_name FROM selected_columns ORDER BY updated_at DESC LIMIT 1";
-    $resultLastUpdatedTable = $conn->query($sqlLastUpdatedTable);
+    // Jika tidak ada tabel yang dipilih dan tidak ada dalam session, ambil tabel terakhir yang diupdate
+    if (file_exists($jsonFilePath)) {
+        $jsonData = file_get_contents($jsonFilePath);
+        $selectedColumnsData = json_decode($jsonData, true);
 
-    if ($resultLastUpdatedTable && $rowLastUpdatedTable = $resultLastUpdatedTable->fetch_assoc()) {
-        $currentTable = $rowLastUpdatedTable['table_name'];
+        // Urutkan berdasarkan updated_at
+        usort($selectedColumnsData, function($a, $b) {
+            return strtotime($b['updated_at']) - strtotime($a['updated_at']);
+        });
+
+        // Ambil tabel dengan updated_at terakhir
+        if (!empty($selectedColumnsData)) {
+            $currentTable = $selectedColumnsData[0]['table_name'];
+        } else {
+            $currentTable = 'days'; // Default tabel jika file kosong
+        }
     } else {
-        $currentTable = 'days'; // Default tabel
+        $currentTable = 'days'; // Default tabel jika file JSON tidak ada
     }
 }
 
 // Ambil kolom dari tabel yang dipilih
-if (!isset($_SESSION['selectedColumns'])) {
-    $sql = "SELECT column_names FROM selected_columns WHERE table_name = '$currentTable'";
-    $result = $conn->query($sql);
+$updateJson = false; // Flag untuk menandakan apakah JSON perlu ditulis ulang
+if (file_exists($jsonFilePath)) {
+    $jsonData = file_get_contents($jsonFilePath);
+    $selectedColumnsData = json_decode($jsonData, true);
+} else {
+    $selectedColumnsData = array(); // Buat array kosong jika file tidak ada
+}
 
-    if ($result && $row = $result->fetch_assoc()) {
-        $_SESSION['selectedColumns'] = explode(',', $row['column_names']);
-    } else {
-        // Jika tidak ada data di selected_columns, gunakan semua kolom dari tabel aktif
-        $columnResult = $conn->query("SHOW COLUMNS FROM $currentTable");
-        $columnNames = array();
-        if ($columnResult) {
-            while ($row = $columnResult->fetch_assoc()) {
-                $columnNames[] = $row['Field'];
-            }
-            $_SESSION['selectedColumns'] = $columnNames; // Set ke semua kolom jika tidak ada di database
-        } else {
-            die("Error retrieving columns: " . $conn->error);
-        }
+$foundTable = false;
+foreach ($selectedColumnsData as &$table) {
+    if ($table['table_name'] == $currentTable) {
+        // Jika tabel ditemukan, ambil kolomnya dan update updated_at
+        $_SESSION['selectedColumns'] = explode(',', $table['column_names']);
+        $table['updated_at'] = date('Y-m-d H:i:s'); // Update updated_at
+        $foundTable = true;
+        $updateJson = true; // JSON perlu diupdate
+        break;
     }
 }
-$selectedColumns = $_SESSION['selectedColumns'];
 
+if (!$foundTable) {
+    // Jika tabel tidak ditemukan, ambil semua kolom dari tabel baru dari database
+    $columnResult = $conn->query("SHOW COLUMNS FROM $currentTable");
+    $columnNames = array();
+    if ($columnResult) {
+        while ($row = $columnResult->fetch_assoc()) {
+            $columnNames[] = $row['Field'];
+        }
+        $_SESSION['selectedColumns'] = $columnNames;
 
-// Debugging: tampilkan nama tabel yang dipilih
-echo "<p>Tabel yang terakhir diupdate: " . $currentTable . "</p>"; 
-echo "<p>Tabel yang dipilih: " . $currentTable . "</p>";  // Debugging: tampilkan nama tabel yang aktif
-echo "<ul>";
-foreach ($_SESSION['selectedColumns'] as $column) {
-    echo "<li>$column</li>";
+        // Tambahkan tabel baru ke JSON
+        $selectedColumnsData[] = array(
+            'table_name' => $currentTable,
+            'column_names' => implode(',', $columnNames),
+            'updated_at' => date('Y-m-d H:i:s')
+        );
+        $updateJson = true; // JSON perlu diupdate
+    } else {
+        die("Error retrieving columns: " . $conn->error);
+    }
 }
-echo "</ul>";
 
-echo $currentTable;
+// Jika JSON perlu diupdate, tulis ulang file JSON
+if ($updateJson) {
+    file_put_contents($jsonFilePath, json_encode($selectedColumnsData));
+}
+
+// Simpan kolom yang dipilih ke dalam variabel
+$selectedColumns = $_SESSION['selectedColumns'];
 
 // Pagination
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
@@ -124,33 +139,89 @@ if (isset($_POST['selected_id_column'])) {
 }
 
 // Kolom ID yang dipilih
-$selectedIdColumn = isset($_SESSION['selected_id_column']) ? $_SESSION['selected_id_column'] : 'instant';
+$selectedIdColumn = isset($_SESSION['selected_id_column']) ? $_SESSION['selected_id_column'] : 'instant'; // default ID
 
 // Handle selected columns
 if ($adminAccess) {
     if (isset($_POST['columns'])) {
+        // Admin mengirimkan kolom yang dipilih
         $_SESSION['selectedColumns'] = $_POST['columns'];
         $selectedColumns = $_POST['columns'];
+
+        // Update file JSON dengan kolom baru
+        if (file_exists($jsonFilePath)) {
+            $jsonData = file_get_contents($jsonFilePath);
+            $selectedColumnsData = json_decode($jsonData, true);
+        } else {
+            $selectedColumnsData = array(); // Buat array kosong jika file tidak ada
+        }
+
+        // Temukan tabel saat ini di JSON dan update kolom serta updated_at
+        $foundTable = false;
+        foreach ($selectedColumnsData as &$table) {
+            if ($table['table_name'] == $currentTable) {
+                $table['column_names'] = implode(',', $selectedColumns);
+                $table['updated_at'] = date('Y-m-d H:i:s');
+                $foundTable = true;
+                break;
+            }
+        }
+
+        // Jika tabel belum ditemukan, tambahkan tabel baru
+        if (!$foundTable) {
+            $selectedColumnsData[] = array(
+                'table_name' => $currentTable,
+                'column_names' => implode(',', $selectedColumns),
+                'updated_at' => date('Y-m-d H:i:s')
+            );
+        }
+
+        // Simpan // Simpan perubahan ke file JSON
+        if (file_put_contents($jsonFilePath, json_encode($selectedColumnsData)) === false) {
+            die("Error: Failed to write to JSON file.");
+        }
+
     } elseif (isset($_SESSION['selectedColumns']) && !empty($_SESSION['selectedColumns'])) {
+        // Ambil dari session jika sudah diset sebelumnya
         $selectedColumns = $_SESSION['selectedColumns'];
     } else {
-        // Ambil dari selected_columns jika belum ada di session
-        $sql = "SELECT column_names FROM selected_columns WHERE table_name = '$currentTable'";
-        $result = $conn->query($sql);
-        if ($row = $result->fetch_assoc()) {
-            $selectedColumns = explode(',', $row['column_names']);
-        } else {
-            $selectedColumns = $columnNames; // Default ke semua kolom
+        // Ambil dari JSON jika belum ada di session
+        if (file_exists($jsonFilePath)) {
+            $jsonData = file_get_contents($jsonFilePath);
+            $selectedColumnsData = json_decode($jsonData, true);
+
+            foreach ($selectedColumnsData as $table) {
+                if ($table['table_name'] == $currentTable) {
+                    $selectedColumns = explode(',', $table['column_names']);
+                    $_SESSION['selectedColumns'] = $selectedColumns; // Simpan ke session
+                    break;
+                }
+            }
+        }
+
+        // Jika tabel belum ada di JSON, default ke semua kolom
+        if (!isset($selectedColumns)) {
+            $selectedColumns = $columnNames;
+            $_SESSION['selectedColumns'] = $selectedColumns; // Set ke semua kolom
         }
     }
 } else {
-    // Ambil kolom yang disimpan di selected_columns jika user non-admin
-    $sql = "SELECT column_names FROM selected_columns WHERE table_name = '$currentTable'";
-    $result = $conn->query($sql);
-    if ($row = $result->fetch_assoc()) {
-        $selectedColumns = explode(',', $row['column_names']);
-    } else {
-        $selectedColumns = $columnNames; // Default ke semua kolom
+    // User non-admin: Ambil kolom dari file JSON
+    if (file_exists($jsonFilePath)) {
+        $jsonData = file_get_contents($jsonFilePath);
+        $selectedColumnsData = json_decode($jsonData, true);
+
+        foreach ($selectedColumnsData as $table) {
+            if ($table['table_name'] == $currentTable) {
+                $selectedColumns = explode(',', $table['column_names']);
+                break;
+            }
+        }
+    }
+
+    // Jika tabel belum ada di JSON, default ke semua kolom
+    if (!isset($selectedColumns)) {
+        $selectedColumns = $columnNames;
     }
 }
 
@@ -341,8 +412,7 @@ $conn->close();
     }
 
     /* Mengatur dropdown dan tombol agar seragam */
-    .styled-dropdown,
-    .dropbtn {
+    .styled-dropdown {
         padding: 10px 16px;
         font-size: 16px;
         color: white;
@@ -358,6 +428,18 @@ $conn->close();
         text-align: center;
     }
 
+    .dropbtn {
+        padding: 10px 16px;
+        font-size: 16px;
+        color: white;
+        background-color: #4CAF50;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        min-width: 150px;
+        text-align: center;
+    }
+
     .styled-dropdown:hover,
     .dropbtn:hover {
         background-color: #45a049;
@@ -368,12 +450,14 @@ $conn->close();
         display: none;
         position: absolute;
         background-color: #f9f9f9;
-        min-width: 160px;
+        min-width: 200px;
         box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
-        padding: 12px 16px;
+        padding: 12px;
         z-index: 1;
         overflow-y: auto;
         max-height: 300px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
     }
 
     .dropdown:hover .dropdown-content {
@@ -381,18 +465,23 @@ $conn->close();
     }
 
     .dropdown-content label {
-        display: block;
-        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 0;
         cursor: pointer;
     }
 
+    /* Submit button in dropdown */
     .dropdown-submit {
         background-color: #4CAF50;
         color: white;
-        padding: 5px 10px;
+        padding: 8px 12px;
         border: none;
         cursor: pointer;
+        width: 100%;
         margin-top: 10px;
+        border-radius: 5px;
     }
 
     .dropdown-submit:hover {
@@ -426,9 +515,9 @@ $conn->close();
         <!-- Jika admin, tampilkan menu admin -->
         <?php if ($adminAccess) : ?>
         <div class="form-item">
-            <form id="columnForm" action="show.php" method="POST">
+            <form id="columnForm" action="index.php" method="POST">
                 <div class="dropdown">
-                    <label for="columns">Select Columns</label>
+                <label for="columns">Select Columns</label>
                     <button class="dropbtn">Select Columns</button>
                     <div class="dropdown-content">
                         <?php foreach ($columnNames as $column): ?>
@@ -436,13 +525,14 @@ $conn->close();
                             <input type="checkbox" name="columns[]" value="<?php echo $column; ?>"
                                 <?php echo in_array($column, $selectedColumns) ? 'checked' : ''; ?>>
                             <?php echo $column; ?>
-                        </label><br>
+                        </label>
                         <?php endforeach; ?>
                         <input type="submit" value="Update" class="dropdown-submit">
                     </div>
                 </div>
             </form>
         </div>
+
 
         <div class="form-item">
             <form action="switch.php" method="POST">
@@ -456,7 +546,7 @@ $conn->close();
 
         <form method="POST" action="index.php">
             <label for="id_column">Pilih Kolom ID:</label>
-            <select name="selected_id_column" id="id_column" class="styled-dropdown"  onchange="this.form.submit()">
+            <select name="selected_id_column" id="id_column" class="styled-dropdown" onchange="this.form.submit()">
                 <?php foreach ($selectedColumns as $column): ?>
                 <option value="<?php echo htmlspecialchars($column); ?>"
                     <?php if ($column == $selectedIdColumn) echo 'selected'; ?>>
@@ -520,9 +610,9 @@ $conn->close();
     foreach ($selectedColumns as $column) {
         echo "<th>$column</th>";
     }
-    if ($loggedIn){
+    // if ($loggedIn){
         echo "<th>Action</th>";
-    }
+    // }
     echo "</tr>";
     echo "</thead>";
     echo "<tbody>";
@@ -531,10 +621,10 @@ $conn->close();
         foreach ($selectedColumns as $column) {
             echo "<td>" . htmlspecialchars($row[$column]) . "</td>";
         }
-        if ($loggedIn){
+        // if ($loggedIn){
             echo "<td><a href=\"edit.php?id=" . urlencode($row[$selectedIdColumn]) . "&columns=" . urlencode(implode(',', $selectedColumns)) . "\">Edit</a></td>";
 
-        }
+        // }
         echo "</tr>";
     }
     echo "</tbody>";

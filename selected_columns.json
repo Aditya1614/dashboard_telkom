@@ -1,0 +1,1 @@
+[{"table_name":"days","column_names":"instant,dteday,season,mnth,holiday,weekday,windspeed,id2","updated_at":"2024-09-17 11:39:06"},{"table_name":"hours","column_names":"instant,holiday,weekday,workingday,weathersit,temp,atemp,hum,cnt","updated_at":"2024-09-17 11:37:04"}]

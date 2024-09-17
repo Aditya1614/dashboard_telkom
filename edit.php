@@ -3,30 +3,41 @@ session_start();
 include 'db_connect.php';
 
 // Cek apakah user sudah login
-if (!isset($_SESSION['user'])) {
-    header("Location: login.php");
-    exit();
-}
+// if (!isset($_SESSION['user'])) {
+//     header("Location: login.php");
+//     exit();
+// }
 
+// ambil selectedColumns dari sesi
 if (isset($_SESSION['selectedColumns'])) {
     $selectedColumns = $_SESSION['selectedColumns'];
 } else {
-    // Handle the case when selectedColumns is not set
-    $selectedColumns = array(); // Or provide a default array of columns
+    $selectedColumns = array();
 }
 
 
 // Ambil tabel saat ini dari session, default adalah 'days'
+$jsonFilePath = 'selected_columns.json';
 if (isset($_SESSION['currentTable'])) {
     $currentTable = $_SESSION['currentTable'];
 } else {
-    $sqlLastUpdatedTable = "SELECT table_name FROM selected_columns ORDER BY updated_at DESC LIMIT 1";
-    $resultLastUpdatedTable = $conn->query($sqlLastUpdatedTable);
+    if (file_exists($jsonFilePath)) {
+        $jsonData = file_get_contents($jsonFilePath);
+        $selectedColumnsData = json_decode($jsonData, true);
 
-    if ($resultLastUpdatedTable && $rowLastUpdatedTable = $resultLastUpdatedTable->fetch_assoc()) {
-        $currentTable = $rowLastUpdatedTable['table_name'];
+        // Urutkan berdasarkan updated_at
+        usort($selectedColumnsData, function($a, $b) {
+            return strtotime($b['updated_at']) - strtotime($a['updated_at']);
+        });
+
+        // Ambil tabel dengan updated_at terakhir
+        if (!empty($selectedColumnsData)) {
+            $currentTable = $selectedColumnsData[0]['table_name'];
+        } else {
+            $currentTable = 'days'; // Default tabel jika file kosong
+        }
     } else {
-        $currentTable = 'days'; // Default tabel
+        $currentTable = 'days'; // Default tabel jika file JSON tidak ada
     }
 }
 
@@ -41,27 +52,6 @@ if (is_null($selectedIdValue)) {
     echo "ID tidak ditemukan di URL.";
     exit();
 }
-
-// Cek apakah nilai kolom ID unik
-// $sqlCheckUnique = "SELECT 
-//     CASE 
-//         WHEN COUNT(*) = COUNT(DISTINCT $selectedIdColumn) THEN 'Unique' 
-//         ELSE 'Not Unique' 
-//     END AS uniqueness_check 
-// FROM $currentTable;";
-
-// $resultCheck = $conn->query($sqlCheckUnique);
-
-// if ($resultCheck && $row = $resultCheck->fetch_assoc()) {
-//     if ($row['uniqueness_check'] === 'Not Unique') {
-//         echo "<script>alert('Kolom yang dipilih untuk ID tidak unik. Silakan pilih kolom lain.');</script>";
-//     }
-// }
-
-// // Cek apakah query berhasil
-// if (!$resultCheck) {
-//     die("Error pada query pengecekan unik: " . $conn->error);
-// }
 
 // Check if the selected column is unique
 $sqlCheckUnique = "SELECT 
@@ -84,7 +74,6 @@ if (!$resultCheck) {
     die("Error on uniqueness check query: " . $conn->error);
 }
 
-
 // Ensure the selectedIdValue is quoted properly
 $sql = "SELECT * FROM $currentTable WHERE $selectedIdColumn = ?";
 $stmt = $conn->prepare($sql);
@@ -104,8 +93,6 @@ $stmt->execute();
 $stmt->store_result();
 
 if ($stmt->num_rows == 0) {
-    // echo "Table: $currentTable, Column: $selectedIdColumn, Value: $selectedIdValue<br>";
-    // echo "Data not found.";
     exit();
 }
 

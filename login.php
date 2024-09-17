@@ -1,40 +1,41 @@
 <?php
 session_start();
-include 'db_connect.php';
 
-if (!$conn) {
-    die("Connection failed: " . $conn->connect_error);
+function getUsersFromJSON() {
+    $file = 'users.json';
+    if (!file_exists($file)) {
+        die("Users file not found.");
+    }
+    $jsonData = file_get_contents($file);
+    return json_decode($jsonData, true); // Decode JSON to associative array
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = $_POST['username'];
     $password = $_POST['password'];
 
-    $sql = "SELECT username, password, role FROM users WHERE username=?";
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        die("Prepare failed: " . $conn->error);
-    }
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
+    $users = getUsersFromJSON(); // Load users from the JSON file
+
+    $userFound = false;
     
-    // Use bind_result to fetch the columns
-    $stmt->bind_result($db_username, $db_password, $db_role);
-    
-    if ($stmt->fetch()) {
-        if ($password === $db_password) {
-            session_regenerate_id(true);
-            $_SESSION['user'] = $db_username;
-            $_SESSION['role'] = $db_role;
-            header("Location: index.php");
-            exit();
-        } else {
-            echo "<div class='error'>Password salah!</div>";
+    foreach ($users as $user) {
+        if ($user['username'] === $username) {
+            $userFound = true;
+            if ($user['password'] === $password) {
+                session_regenerate_id(true);
+                $_SESSION['user'] = $user['username'];
+                $_SESSION['role'] = $user['role'];
+                header("Location: index.php");
+                exit();
+            } else {
+                echo "<div class='error'>Password salah!</div>";
+            }
         }
-    } else {
+    }
+
+    if (!$userFound) {
         echo "<div class='error'>Pengguna tidak ditemukan!</div>";
     }
-    $stmt->close();
 }
 ?>
 
@@ -111,10 +112,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <input type="password" name="password" placeholder="Password" required><br>
             <button type="submit">Login</button>
         </form>
-        <div class="register-link">
+        <!-- <div class="register-link">
             Belum punya akun? <a href="register.php">Daftar</a>
+        </div> -->
+        <div class="register-link">
+            <a href="index.php">Masuk sebagai visitor</a>
         </div>
     </div>
 </body>
 </html>
-
