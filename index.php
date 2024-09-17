@@ -81,6 +81,7 @@ foreach ($selectedColumnsData as &$table) {
     if ($table['table_name'] == $currentTable) {
         // Jika tabel ditemukan, ambil kolomnya dan update updated_at
         $_SESSION['selectedColumns'] = explode(',', $table['column_names']);
+        $_SESSION['selected_id_column'] = isset($table['selected_ID']) ? $table['selected_ID'] : 'instant'; // Default ID jika belum diset
         $table['updated_at'] = date('Y-m-d H:i:s'); // Update updated_at
         $foundTable = true;
         $updateJson = true; // JSON perlu diupdate
@@ -97,11 +98,13 @@ if (!$foundTable) {
             $columnNames[] = $row['Field'];
         }
         $_SESSION['selectedColumns'] = $columnNames;
+        $_SESSION['selected_id_column'] = 'instant'; // Default ID
 
         // Tambahkan tabel baru ke JSON
         $selectedColumnsData[] = array(
             'table_name' => $currentTable,
             'column_names' => implode(',', $columnNames),
+            'selected_ID' => 'instant', // Default ID
             'updated_at' => date('Y-m-d H:i:s')
         );
         $updateJson = true; // JSON perlu diupdate
@@ -134,12 +137,48 @@ while ($row = $columnResult->fetch_assoc()) {
 }
 
 // Set kolom ID yang dipilih
+// Set kolom ID yang dipilih
 if (isset($_POST['selected_id_column'])) {
     $_SESSION['selected_id_column'] = $_POST['selected_id_column'];
-}
+    $selectedIdColumn = $_POST['selected_id_column'];
 
-// Kolom ID yang dipilih
-$selectedIdColumn = isset($_SESSION['selected_id_column']) ? $_SESSION['selected_id_column'] : 'instant'; // default ID
+    // Update file JSON dengan selected ID column
+    if (file_exists($jsonFilePath)) {
+        $jsonData = file_get_contents($jsonFilePath);
+        $selectedColumnsData = json_decode($jsonData, true);
+    } else {
+        $selectedColumnsData = array(); // Buat array kosong jika file tidak ada
+    }
+
+    // Temukan tabel saat ini di JSON dan update selected_ID serta updated_at
+    $foundTable = false;
+    foreach ($selectedColumnsData as &$table) {
+        if ($table['table_name'] == $currentTable) {
+            $table['selected_ID'] = $selectedIdColumn; // Update selected_ID
+            $table['updated_at'] = date('Y-m-d H:i:s');
+            $foundTable = true;
+            break;
+        }
+    }
+
+    // Jika tabel belum ditemukan, tambahkan tabel baru
+    if (!$foundTable) {
+        $selectedColumnsData[] = array(
+            'table_name' => $currentTable,
+            'column_names' => implode(',', $selectedColumns),
+            'selected_ID' => $selectedIdColumn,
+            'updated_at' => date('Y-m-d H:i:s')
+        );
+    }
+
+    // Simpan perubahan ke file JSON
+    if (file_put_contents($jsonFilePath, json_encode($selectedColumnsData)) === false) {
+        die("Error: Failed to write to JSON file.");
+    }
+} else {
+    // Ambil kolom ID dari session jika sudah diset sebelumnya
+    $selectedIdColumn = isset($_SESSION['selected_id_column']) ? $_SESSION['selected_id_column'] : 'instant'; // default ID
+}
 
 // Handle selected columns
 if ($adminAccess) {

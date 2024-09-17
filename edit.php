@@ -9,7 +9,7 @@ include 'db_connect.php';
 // }
 
 // ambil selectedColumns dari sesi
-if (isset($_SESSION['selectedColumns'])) {
+if (isset($_SESSION['selectedColumns']) && !empty($_SESSION['selectedColumns'])) {
     $selectedColumns = $_SESSION['selectedColumns'];
 } else {
     $selectedColumns = array();
@@ -83,8 +83,12 @@ if ($stmt === false) {
     die("Error preparing SQL statement: " . $conn->error);
 }
 
-// Bind the selected ID value (assuming it's a string, use "i" for integers)
-$stmt->bind_param("s", $selectedIdValue);
+// Bind ID berdasarkan tipe data (integer atau string)
+if (strpos($idColumnType, 'int') !== false) {
+    $stmt->bind_param("i", $selectedIdValue); // Jika tipe ID adalah integer
+} else {
+    $stmt->bind_param("s", $selectedIdValue); // Jika tipe ID adalah string
+}
 
 // Execute the statement
 $stmt->execute();
@@ -115,21 +119,6 @@ $item = array();
 foreach ($data as $key => $value) {
     $item[$key] = $value;
 }
-
-// Handle the case where there is no data
-if (!$stmt->num_rows) {
-    // echo "Table: $currentTable, Column: $selectedIdColumn, Value: $selectedIdValue<br>";
-    // echo "Data not found.";
-    exit();
-}
-
-// Debug output (optional)
-// echo "Table: $currentTable, Column: $selectedIdColumn, Value: $selectedIdValue, SelectedColumns: $selectedColumns<br>";
-// 
-
-
-// $item = $result->fetch_assoc();
-
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $updates = array();
@@ -171,14 +160,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: index.php");
         exit();
     } else {
-        // echo "Error updating record: " . $stmt->error;
     }
 }
- 
-// Debug
-// echo "Table: $currentTable, Column: $selectedIdColumn, Value: $selectedIdValue<br>";
-
-
 $conn->close();
 ?>
 
@@ -255,9 +238,6 @@ $conn->close();
         cursor: not-allowed;
     }
     </style>
-</head>
-
-</style>
 </head>
 
 <body>
