@@ -1,6 +1,16 @@
 <?php
 session_start();
 
+/**
+ * Mendapatkan daftar pengguna dari file JSON.
+ *
+ * Fungsi ini memeriksa keberadaan file `users.json`, membaca kontennya, 
+ * dan mengonversi data JSON menjadi array asosiatif PHP.
+ * Jika file tidak ditemukan, fungsi akan menghentikan eksekusi dengan pesan error.
+ *
+ * @return array Mengembalikan array asosiatif berisi data pengguna dari file JSON.
+ *               Jika file tidak ditemukan, skrip dihentikan.
+ */
 function getUsersFromJSON() {
     $file = 'users.json';
     if (!file_exists($file)) {

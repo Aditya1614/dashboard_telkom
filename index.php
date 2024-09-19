@@ -320,6 +320,8 @@ $conn->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bike Sharing Data</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <style>
     body {
         font-family: Arial, sans-serif;
@@ -556,7 +558,7 @@ $conn->close();
         <div class="form-item">
             <form id="columnForm" action="index.php" method="POST">
                 <div class="dropdown">
-                <label for="columns">Select Columns</label>
+                    <label for="columns">Select Columns</label>
                     <button class="dropbtn">Select Columns</button>
                     <div class="dropdown-content">
                         <?php foreach ($columnNames as $column): ?>
@@ -639,19 +641,17 @@ $conn->close();
         </div>
     </div>
     <?php 
-    if (empty($data)) {
-        echo "No data found in the table.";
-    } else {
-        // Display the table with data
-    echo "<table>";
+if (empty($data)) {
+    echo "No data found in the table.";
+} else {
+    // Display the table with data
+    echo "<table class='table'>";
     echo "<thead>";
     echo "<tr>";
     foreach ($selectedColumns as $column) {
         echo "<th>$column</th>";
     }
-    // if ($loggedIn){
-        echo "<th>Action</th>";
-    // }
+    echo "<th>Action</th>";
     echo "</tr>";
     echo "</thead>";
     echo "<tbody>";
@@ -660,16 +660,42 @@ $conn->close();
         foreach ($selectedColumns as $column) {
             echo "<td>" . htmlspecialchars($row[$column]) . "</td>";
         }
-        // if ($loggedIn){
-            echo "<td><a href=\"edit.php?id=" . urlencode($row[$selectedIdColumn]) . "&columns=" . urlencode(implode(',', $selectedColumns)) . "\">Edit</a></td>";
 
-        // }
+        // Add the Edit button, but don't redirect, let AJAX handle it
+        echo "<td><button data-id='" . htmlspecialchars($row[$selectedIdColumn]) . "' class='btn btn-primary edit-btn'>Edit</button></td>";
         echo "</tr>";
     }
     echo "</tbody>";
     echo "</table>";
-    }
-    ?>
+}
+?>
+
+    <!-- Modal HTML -->
+    <div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel">Edit Data</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- Form will be loaded here via AJAX -->
+                    <form id="editForm">
+                        <!-- Dynamic content goes here -->
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveChanges">Save changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
 
     <!-- Pagination -->
     <div class="pagination">
@@ -717,6 +743,82 @@ $conn->close();
         <a href="login.php">Login</a>
         <?php endif; ?>
     </div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+    <script>
+    $(document).ready(function() {
+        var selectedId = null; // Declare a variable to store the ID
+
+        // When "Edit" button is clicked
+        $('body').on('click', '.edit-btn', function(e) {
+            e.preventDefault(); // Prevent default link behavior
+
+            selectedId = $(this).data('id'); // Get the ID from the button's data-id attribute
+
+            // Debug: Check if the ID is being correctly fetched
+            console.log("Selected ID: " + selectedId);
+
+            if (!selectedId) {
+                alert('ID tidak ditemukan!');
+                return;
+            }
+
+            // Load the edit form via AJAX into the modal
+            $.ajax({
+                url: 'edit.php',
+                method: 'GET',
+                data: {
+                    id: selectedId
+                }, // Pass the ID to the server
+                success: function(response) {
+                    console.log("AJAX response: " + response);
+                    $('#editForm').html(response); // Load form content
+                    $('#editModal').modal('show'); // Show the modal
+                },
+                error: function(xhr, status, error) {
+                    console.log("AJAX Error: " + error);
+                    alert('Gagal memuat form. Silakan coba lagi.');
+                }
+            });
+        });
+
+        // When "Save changes" button is clicked
+        $('#saveChanges').on('click', function() {
+            // if (!selectedId) {
+            //     alert('ID tidak ditemukan di URL!');
+            //     return;
+            // }
+
+            var formData = $('#editForm').serialize(); // Serialize form data
+            formData += '&id=' + selectedId; // Add the selectedId to the form data
+
+            // Debugging: Log the formData to see what's being sent
+            console.log("Form Data being sent: " + formData);
+
+            $.ajax({
+                url: 'edit.php',
+                method: 'POST',
+                data: formData,
+                success: function(response) {
+                    alert(response); // Show the response from the server
+                    $('#editModal').modal('hide'); // Hide the modal
+                    location.reload(); // Reload the page to reflect changes
+                },
+                error: function(xhr, status, error) {
+                    console.log("AJAX Error: " + error);
+                    alert('Gagal menyimpan perubahan. Silakan coba lagi.');
+                }
+            });
+        });
+
+    });
+    </script>
+
+
+
 </body>
 
 </html>

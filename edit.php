@@ -2,18 +2,8 @@
 session_start();
 include 'db_connect.php';
 
-// Cek apakah user sudah login
-// if (!isset($_SESSION['user'])) {
-//     header("Location: login.php");
-//     exit();
-// }
-
-// ambil selectedColumns dari sesi
-if (isset($_SESSION['selectedColumns']) && !empty($_SESSION['selectedColumns'])) {
-    $selectedColumns = $_SESSION['selectedColumns'];
-} else {
-    $selectedColumns = array();
-}
+// Handle the session and fetch selectedColumns
+$selectedColumns = isset($_SESSION['selectedColumns']) ? $_SESSION['selectedColumns'] : array();
 
 
 // Ambil tabel saat ini dari session, default adalah 'days'
@@ -24,34 +14,30 @@ if (isset($_SESSION['currentTable'])) {
     if (file_exists($jsonFilePath)) {
         $jsonData = file_get_contents($jsonFilePath);
         $selectedColumnsData = json_decode($jsonData, true);
-
-        // Urutkan berdasarkan updated_at
         usort($selectedColumnsData, function($a, $b) {
             return strtotime($b['updated_at']) - strtotime($a['updated_at']);
         });
-
-        // Ambil tabel dengan updated_at terakhir
-        if (!empty($selectedColumnsData)) {
-            $currentTable = $selectedColumnsData[0]['table_name'];
-        } else {
-            $currentTable = 'days'; // Default tabel jika file kosong
-        }
+        $currentTable = !empty($selectedColumnsData) ? $selectedColumnsData[0]['table_name'] : 'days';
     } else {
-        $currentTable = 'days'; // Default tabel jika file JSON tidak ada
+        $currentTable = 'days';
     }
 }
 
 // Ambil kolom ID yang dipilih (default = instant)
 $selectedIdColumn = isset($_SESSION['selected_id_column']) ? $_SESSION['selected_id_column'] : 'instant';
 
-// Ambil ID dari URL dengan parameter tetap 'id'
-$selectedIdValue = isset($_GET['id']) ? $_GET['id'] : (isset($_GET['instant']) ? $_GET['instant'] : null);
+// Get ID from URL
+$selectedIdValue = isset($_GET['id']) ? $_GET['id'] : null;
 
-// Cek apakah ID tersedia di URL
+if (isset($_POST['id'])) {
+    $selectedIdValue = $_POST['id'];
+}
+
 if (is_null($selectedIdValue)) {
-    echo "ID tidak ditemukan di URL.";
+    echo "ID tidak ditemukan di URL";
     exit();
 }
+
 
 // Check if the selected column is unique
 $sqlCheckUnique = "SELECT 
@@ -83,12 +69,25 @@ if ($stmt === false) {
     die("Error preparing SQL statement: " . $conn->error);
 }
 
-// Bind ID berdasarkan tipe data (integer atau string)
+
+// Query the database to get the column type for the selected ID column
+$sqlColumnType = "SELECT DATA_TYPE 
+                  FROM INFORMATION_SCHEMA.COLUMNS 
+                  WHERE TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1";
+$stmtType = $conn->prepare($sqlColumnType);
+$stmtType->bind_param("ss", $currentTable, $selectedIdColumn);
+$stmtType->execute();
+$stmtType->bind_result($idColumnType);
+$stmtType->fetch();
+$stmtType->close();
+
+// Now use the fetched column type to bind the ID value
 if (strpos($idColumnType, 'int') !== false) {
-    $stmt->bind_param("i", $selectedIdValue); // Jika tipe ID adalah integer
+    $stmt->bind_param("i", $selectedIdValue); // Bind as integer if the column is of integer type
 } else {
-    $stmt->bind_param("s", $selectedIdValue); // Jika tipe ID adalah string
+    $stmt->bind_param("s", $selectedIdValue); // Bind as string otherwise
 }
+
 
 // Execute the statement
 $stmt->execute();
@@ -120,156 +119,89 @@ foreach ($data as $key => $value) {
     $item[$key] = $value;
 }
 
+// Handle POST request for updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    // Debugging: Check if ID is received
+    // if (!isset($_POST['id'])) {
+    //     die('ID tidak ditemukan di POST data!');
+    // } else {
+    //     $selectedIdValue = $_POST['id']; // Get the ID
+    //     echo "Updating for $selectedIdColumn == " . htmlspecialchars($selectedIdValue); // For debugging
+    // }
+
     $updates = array();
-    foreach ($_SESSION['selectedColumns'] as $column) {
+    foreach ($selectedColumns as $column) {
         $value = $_POST[$column];
         $updates[] = "$column = ?";
     }
     $updateQuery = implode(", ", $updates);
-
+    
     $sqlUpdate = "UPDATE $currentTable SET $updateQuery WHERE $selectedIdColumn = ?";
     $stmt = $conn->prepare($sqlUpdate);
-
     if ($stmt === false) {
         die("Error preparing SQL update statement: " . $conn->error);
     }
 
-    // Bind values individually
+    // Bind values
     $params = array();
-    foreach ($_SESSION['selectedColumns'] as $column) {
-        $params[] = $_POST[$column];  // Add form values to params
+    foreach ($selectedColumns as $column) {
+        $params[] = $_POST[$column];
     }
-    $params[] = $selectedIdValue;  // Add the ID value at the end
+    $params[] = $selectedIdValue;
 
-    // Create a string of types based on the number of parameters (assuming all are strings)
-    $types = str_repeat('s', count($params));
+    // Dynamically bind parameter types
+    $types = '';
+    foreach ($params as $param) {
+        $types .= is_numeric($param) ? 'i' : 's';
+    }
 
-    // Prepare the parameters for binding (create an array of references)
+    // Bind the values
     $bindParams = array_merge(array($types), $params);
     $refs = array();
     foreach ($bindParams as $key => $value) {
-        $refs[$key] = &$bindParams[$key]; // Pass by reference
+        $refs[$key] = &$bindParams[$key];
     }
-
-    // Bind the parameters
     call_user_func_array(array($stmt, 'bind_param'), $refs);
 
-    // Execute the statement
     if ($stmt->execute()) {
-        header("Location: index.php");
+        echo " Data updated successfully!";
         exit();
     } else {
+        echo "Error updating data.";
+        exit();
     }
 }
+
+// Render the form for AJAX (GET request)
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['id'])) {
+    ob_start(); 
+    ?>
+    <div class="form-group">
+        <?php foreach ($selectedColumns as $column): ?>
+            <?php if (isset($item[$column])): ?>
+                <?php if ($column === 'dteday'): ?>
+                    <label for="dteday">Date (dteday):</label>
+                    <input type="date" id="dteday" name="dteday" class="form-control"
+                        value="<?php echo htmlspecialchars(date('Y-m-d', strtotime($item['dteday']))) ?>">
+                <?php elseif ($column === $selectedIdColumn): ?>
+                    <label for="<?php echo htmlspecialchars($column) ?>"><?php echo htmlspecialchars($column) ?>:</label>
+                    <input type="text" id="<?php echo htmlspecialchars($column) ?>"
+                        value="<?php echo htmlspecialchars($item[$column]) ?>" disabled class="form-control not-editable">
+                    <input type="hidden" name="<?php echo htmlspecialchars($column) ?>"
+                        value="<?php echo htmlspecialchars($item[$column]) ?>">
+                <?php else: ?>
+                    <label for="<?php echo htmlspecialchars($column) ?>"><?php echo htmlspecialchars($column) ?>:</label>
+                    <input type="text" id="<?php echo htmlspecialchars($column) ?>" name="<?php echo htmlspecialchars($column) ?>"
+                        value="<?php echo htmlspecialchars($item[$column]) ?>" class="form-control">
+                <?php endif; ?>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    </div>
+    <?php
+    echo ob_get_clean();
+    exit();
+}
+
 $conn->close();
 ?>
-
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Bike Sharing Data</title>
-    <style>
-    <head><meta charset="UTF-8"><meta name="viewport"content="width=device-width, initial-scale=1.0"><title>Edit Bike Sharing Data</title><style>body {
-        font-family: Arial, sans-serif;
-        margin: 20px;
-        padding: 0;
-        background-color: #f4f4f9;
-    }
-
-    h1 {
-        text-align: center;
-        color: #333;
-    }
-
-    form {
-        max-width: 600px;
-        margin: 0 auto;
-        background-color: #fff;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-
-    label {
-        display: block;
-        font-weight: bold;
-        margin-bottom: 5px;
-        color: #555;
-    }
-
-    input[type="text"],
-    input[type="date"] {
-        width: calc(100% - 20px);
-        padding: 10px;
-        margin-bottom: 15px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-
-    input[type="text"]:focus,
-    input[type="date"]:focus {
-        border-color: #4CAF50;
-        outline: none;
-    }
-
-    button {
-        width: 100%;
-        padding: 12px;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        font-size: 16px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-
-    button:hover {
-        background-color: #45a049;
-    }
-
-    .not-editable {
-        background-color: #f2f2f2;
-        color: #888;
-        cursor: not-allowed;
-    }
-    </style>
-</head>
-
-<body>
-    <h1>Edit Bike Sharing Data</h1>
-    <form action="edit.php?id=<?php echo $selectedIdValue ?>" method="POST">
-        <?php foreach ($selectedColumns as $column): ?>
-        <?php if (isset($item[$column])): ?>
-        <?php if ($column === 'dteday'): ?>
-        <label for="dteday">Date (dteday):</label>
-        <input type="date" id="dteday" name="dteday"
-            value="<?php echo htmlspecialchars(date('Y-m-d', strtotime($item['dteday']))) ?>">
-        <?php elseif ($column === $selectedIdColumn): ?>
-        <label for="<?php echo htmlspecialchars($column) ?>"><?php echo htmlspecialchars($column) ?>:</label>
-        <input type="text" id="<?php echo htmlspecialchars($column) ?>"
-            value="<?php echo htmlspecialchars($item[$column]) ?>" disabled class="not-editable">
-        <input type="hidden" name="<?php echo htmlspecialchars($column) ?>"
-            value="<?php echo htmlspecialchars($item[$column]) ?>">
-        <?php else: ?>
-
-
-        <label for="<?php echo htmlspecialchars($column) ?>"><?php echo htmlspecialchars($column) ?>:</label>
-        <input type="text" id="<?php echo htmlspecialchars($column) ?>" name="<?php echo htmlspecialchars($column) ?>"
-            value="<?php echo htmlspecialchars($item[$column]) ?>">
-        <?php endif; ?>
-        <?php else: ?>
-        <input type="hidden" id="<?php echo htmlspecialchars($column) ?>" name="<?php echo htmlspecialchars($column) ?>"
-            value="<?php echo htmlspecialchars($item[$column]) ?>">
-        <?php endif; ?>
-        <?php endforeach; ?>
-
-        <button type="submit">Save</button>
-    </form>
-</body>
-
-</html>

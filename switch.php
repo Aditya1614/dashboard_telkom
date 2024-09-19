@@ -1,11 +1,19 @@
 <?php
 session_start();
-include 'db_connect.php'; // Pastikan jalur ke file koneksi benar
+include 'db_connect.php'; 
 
-// Cek apakah ada tabel yang dipilih dari form
 // Path ke file JSON
 $jsonFilePath = 'selected_columns.json';
 
+/**
+ * Mengambil nama kolom primary key dari tabel yang diberikan.
+ *
+ * Fungsi ini menggunakan query SQL untuk mendapatkan primary key dari tabel.
+ *
+ * @param string $tableName Nama tabel yang ingin diambil primary key-nya.
+ * @param mysqli $conn Koneksi database MySQL.
+ * @return string|null Mengembalikan nama kolom primary key jika ada, atau null jika tidak ditemukan.
+ */
 function getPrimaryKey($tableName, $conn) {
     $sql = "SHOW KEYS FROM $tableName WHERE Key_name = 'PRIMARY'";
     $result = $conn->query($sql);
@@ -16,16 +24,31 @@ function getPrimaryKey($tableName, $conn) {
     return null; // Jika tidak ada primary key
 }
 
-// Fungsi untuk membaca JSON selected_columns.json
+/**
+ * Mengambil data kolom terpilih dari file JSON.
+ *
+ * Fungsi ini membaca file JSON dan mendekode isinya menjadi array asosiatif.
+ *
+ * @param string $jsonFilePath Jalur ke file JSON yang ingin dibaca.
+ * @return array Mengembalikan array asosiatif dari data JSON, atau array kosong jika file tidak ditemukan.
+ */
 function getSelectedColumnsJSON($jsonFilePath) {
     if (file_exists($jsonFilePath)) {
         $jsonData = file_get_contents($jsonFilePath);
-        return json_decode($jsonData, true);
+        return json_decode($jsonData, true); // Mengembalikan array asosiatif dari data JSON
     }
     return array(); // Kembalikan array kosong jika file tidak ada
 }
 
-// Fungsi untuk menulis ke JSON selected_columns.json
+/**
+ * Menulis data kolom terpilih ke file JSON.
+ *
+ * Fungsi ini meng-encode data array menjadi format JSON dan menulisnya ke file.
+ *
+ * @param string $jsonFilePath Jalur ke file JSON yang akan ditulis.
+ * @param array $data Data yang akan di-encode menjadi JSON dan disimpan di file.
+ * @return void Tidak mengembalikan nilai apapun.
+ */
 function writeSelectedColumnsJSON($jsonFilePath, $data) {
     $jsonData = json_encode($data, JSON_PRETTY_PRINT);
     if (file_put_contents($jsonFilePath, $jsonData) === false) {
@@ -33,7 +56,16 @@ function writeSelectedColumnsJSON($jsonFilePath, $data) {
     }
 }
 
-// Fungsi untuk menemukan tabel dalam JSON
+/**
+ * Mencari tabel dalam data JSON berdasarkan nama tabel yang diberikan.
+ *
+ * Fungsi ini mencari tabel dalam array data kolom terpilih berdasarkan 
+ * nama tabel yang diberikan dan mengembalikan tabel tersebut jika ditemukan.
+ *
+ * @param array &$selectedColumnsData Array referensi dari data JSON kolom terpilih.
+ * @param string $currentTable Nama tabel yang akan dicari dalam data JSON.
+ * @return array|null Mengembalikan array tabel yang ditemukan, atau null jika tidak ada tabel yang cocok.
+ */
 function findTableInJSON(&$selectedColumnsData, $currentTable) {
     foreach ($selectedColumnsData as &$table) {
         if ($table['table_name'] === $currentTable) {
