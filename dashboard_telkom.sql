@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: localhost
--- Generation Time: Sep 13, 2024 at 04:14 PM
+-- Generation Time: Sep 17, 2024 at 05:05 PM
 -- Server version: 5.1.37
 -- PHP Version: 5.3.0
 
@@ -18218,52 +18218,3 @@ INSERT INTO `hours` (`instant`, `dteday`, `season`, `yr`, `hr`, `mnth`, `holiday
 (17377, '2012-12-31', 1, 1, 12, 21, 0, 1, 1, 1, 0.26, 0.2576, 0.6, 0.1642, 7, 83, 90),
 (17378, '2012-12-31', 1, 1, 12, 22, 0, 1, 1, 1, 0.26, 0.2727, 0.56, 0.1343, 13, 48, 61),
 (17379, '2012-12-31', 1, 1, 12, 23, 0, 1, 1, 1, 0.26, 0.2727, 0.65, 0.1343, 12, 37, 49);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `selected_columns`
---
-
-CREATE TABLE IF NOT EXISTS `selected_columns` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `table_name` varchar(255) NOT NULL,
-  `column_names` text NOT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `table_name` (`table_name`)
-) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=3 ;
-
---
--- Dumping data for table `selected_columns`
---
-
-INSERT INTO `selected_columns` (`id`, `table_name`, `column_names`, `updated_at`) VALUES
-(1, 'days', 'instant,dteday,yr,temp,atemp,cnt', '2024-09-13 16:12:56'),
-(2, 'hours', 'instant,yr,temp,atemp,cnt', '2024-09-13 16:13:17');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `users`
---
-
-CREATE TABLE IF NOT EXISTS `users` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `role` enum('admin','user') NOT NULL DEFAULT 'user',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=14 ;
-
---
--- Dumping data for table `users`
---
-
-INSERT INTO `users` (`id`, `username`, `password`, `role`, `created_at`) VALUES
-(1, 'user', 'user', 'user', '2024-09-11 09:54:02'),
-(4, 'admin', 'admin', 'admin', '2024-09-11 10:15:05'),
-(11, 'testing', 'testing', 'user', '2024-09-11 15:28:24'),
-(13, 'tes', 'tes', 'user', '2024-09-13 09:54:00');
