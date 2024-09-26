@@ -14,10 +14,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['columns'])) {
     $selectedColumns = $_POST['columns'];
     // $currentTable = $_SESSION['currentTable'];
 
-    if (!isset($_SESSION['currentTable'])) {
-        error_log('Current table not set in session');
-        echo "Error: Current table not set";
-        exit;
+    // if (!isset($_SESSION['currentTable'])) {
+    //     error_log('Current table not set in session');
+    //     echo "Error: Current table not set";
+    //     exit;
+    // }
+
+    if (isset($_SESSION['currentTable'])) {
+        $currentTable = $_SESSION['currentTable'];
+    } else {
+        // Jika tidak ada tabel yang dipilih dan tidak ada dalam session, ambil tabel terakhir yang diupdate
+        if (file_exists($jsonFilePath)) {
+            $jsonData = file_get_contents($jsonFilePath);
+            $selectedColumnsData = json_decode($jsonData, true);
+    
+            // Urutkan berdasarkan updated_at
+            usort($selectedColumnsData, function($a, $b) {
+                return strtotime($b['updated_at']) - strtotime($a['updated_at']);
+            });
+    
+            // Ambil tabel dengan updated_at terakhir
+            if (!empty($selectedColumnsData)) {
+                $currentTable = $selectedColumnsData[0]['table_name'];
+            } else {
+                $currentTable = 'days'; // Default tabel jika file kosong
+            }
+        } else {
+            $currentTable = 'days'; // Default tabel jika file JSON tidak ada
+        }
     }
 
     // Update JSON file
@@ -29,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['columns'])) {
         $selectedColumnsData = array();
     }
 
-    
+    // $currentTable = $_SESSION['currentTable'];
     $foundTable = false;
     foreach ($selectedColumnsData as &$table) {
         if ($table['table_name'] == $currentTable) {
@@ -44,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['columns'])) {
         $selectedColumnsData[] = array(
             'table_name' => $currentTable,
             'column_names' => implode(',', $selectedColumns),
+            'selected_ID' => isset($_SESSION['selected_id_column']) ? $_SESSION['selected_id_column'] : 'instant',
             'updated_at' => date('Y-m-d H:i:s')
         );
     }
