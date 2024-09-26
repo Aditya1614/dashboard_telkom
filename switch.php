@@ -6,6 +6,35 @@ include 'db_connect.php';
 $jsonFilePath = 'selected_columns.json';
 
 /**
+ * Mengambil nilai selected_ID dari JSON atau primary key dari tabel.
+ *
+ * Fungsi ini pertama-tama mencoba untuk mengambil nilai selected_ID dari JSON.
+ * Jika tidak ditemukan, maka mengambil primary key dari tabel.
+ *
+ * @param string $tableName Nama tabel yang ingin diambil selected_ID-nya.
+ * @param array $selectedColumnsData Data JSON yang sudah didekode dari file.
+ * @param mysqli $conn Koneksi database MySQL.
+ * @return string|null Mengembalikan selected_ID dari JSON atau primary key jika tidak ada.
+ */
+function getSelectedID($tableName, $selectedColumnsData, $conn) {
+    // Cek apakah tabel sudah ada di dalam data JSON
+    $table = findTableInJSON($selectedColumnsData, $tableName);
+
+    if ($table && isset($table['selected_ID'])) {
+        // Jika tabel ditemukan di JSON dan selected_ID tersedia, kembalikan selected_ID dari JSON
+        return $table['selected_ID'];
+    } else {
+        // Jika tidak ditemukan, ambil primary key dari tabel
+        $primaryKey = getPrimaryKey($tableName, $conn);
+        if ($primaryKey) {
+            return $primaryKey; // Kembalikan primary key default jika selected_ID tidak ada di JSON
+        }
+    }
+
+    return null; // Jika tidak ada primary key, kembalikan null
+}
+
+/**
  * Mengambil nama kolom primary key dari tabel yang diberikan.
  *
  * Fungsi ini menggunakan query SQL untuk mendapatkan primary key dari tabel.
@@ -92,7 +121,7 @@ if (isset($_POST['table'])) {
         $table['updated_at'] = date('Y-m-d H:i:s');
         // Jika selected_ID belum ada, tetapkan
         if (!isset($table['selected_ID'])) {
-            $table['selected_ID'] = getSelectedID($currentTable, $conn);
+            $table['selected_ID'] = getSelectedID($currentTable,$selectedColumnsData, $conn);
             $updateJson = true;
         }
     } else {
@@ -113,7 +142,7 @@ if (isset($_POST['table'])) {
         $columnNames = implode(',', $columns);
 
         // Dapatkan selected_ID, baik dari admin maupun default primary key
-        $selectedID = getSelectedID($currentTable, $conn);
+        $selectedID = getSelectedID($currentTable, $selectedColumnsData, $conn);
         if (!$selectedID) {
             die("Error: Tidak dapat menentukan selected_ID untuk tabel '$currentTable'.");
         }

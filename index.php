@@ -546,6 +546,10 @@ $conn->close();
     button:hover {
         background-color: #45a049;
     }
+
+    .forbidden-cursor {
+        cursor: not-allowed;
+    }
     </style>
 </head>
 
@@ -558,21 +562,22 @@ $conn->close();
         <div class="form-item">
             <form id="columnForm" action="index.php" method="POST">
                 <div class="dropdown">
-                    <label for="columns">Select Columns</label>
-                    <button class="dropbtn">Select Columns</button>
-                    <div class="dropdown-content">
+                    <label for="dropdownButton">Select Columns</label>
+                    <button type="button" class="dropbtn" id="dropdownButton">Select Columns</button>
+                    <div class="dropdown-content" id="dropdownContent" style="display: none;">
                         <?php foreach ($columnNames as $column): ?>
                         <label>
                             <input type="checkbox" name="columns[]" value="<?php echo $column; ?>"
-                                <?php echo in_array($column, $selectedColumns) ? 'checked' : ''; ?>>
+                                <?php echo in_array($column, $selectedColumns) ? 'checked' : ''; ?>
+                                class="column-checkbox">
                             <?php echo $column; ?>
                         </label>
                         <?php endforeach; ?>
-                        <input type="submit" value="Update" class="dropdown-submit">
                     </div>
                 </div>
             </form>
         </div>
+
 
 
         <div class="form-item">
@@ -640,7 +645,9 @@ $conn->close();
             </form>
         </div>
     </div>
-    <?php 
+
+    <div id="tableContainer">
+        <?php 
 if (empty($data)) {
     echo "No data found in the table.";
 } else {
@@ -669,6 +676,7 @@ if (empty($data)) {
     echo "</table>";
 }
 ?>
+    </div>
 
     <!-- Modal HTML -->
     <div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel"
@@ -749,8 +757,55 @@ if (empty($data)) {
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
 
     <script>
+    // Get dropdown elements
+    const dropdownButton = document.getElementById('dropdownButton');
+    const dropdownContent = document.getElementById('dropdownContent');
+
+    // Toggle dropdown on button click (dropdown for selectedColumns)
+    if (dropdownButton && dropdownContent) {
+        dropdownButton.addEventListener('click', function(event) {
+            event.preventDefault(); // Prevent form submission when clicking the button
+            dropdownContent.style.display = (dropdownContent.style.display === 'none' || dropdownContent.style
+                .display === '') ? 'block' : 'none';
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const isClickInsideDropdown = dropdownButton.contains(event.target) || dropdownContent.contains(
+                event.target);
+            const isEditButton = event.target.classList.contains('edit-btn');
+
+            // Only close dropdown if the click is outside and it's not an edit button
+            if (!isClickInsideDropdown && !isEditButton) {
+                dropdownContent.style.display = 'none';
+            }
+        });
+    }
+
+    // Edit button logic
     $(document).ready(function() {
         var selectedId = null; // Declare a variable to store the ID
+
+        // Handle checkbox changes
+        $(document).on('change', '.column-checkbox', function() {
+            console.log('Checkbox changed'); // Debug log
+            var formData = $('#columnForm').serialize();
+
+            $.ajax({
+                url: 'update_columns.php',
+                method: 'POST',
+                data: formData,
+                success: function(response) {
+                    console.log('AJAX success'); // Debug log
+                    // Refresh only the table content
+                    $('#tableContainer').html(response);
+                },
+                error: function(xhr, status, error) {
+                    console.log("AJAX Error: " + error);
+                    alert('Failed to update columns. Please try again.');
+                }
+            });
+        });
 
         // When "Edit" button is clicked
         $('body').on('click', '.edit-btn', function(e) {
@@ -787,10 +842,6 @@ if (empty($data)) {
 
         // When "Save changes" button is clicked
         $('#saveChanges').on('click', function() {
-            // if (!selectedId) {
-            //     alert('ID tidak ditemukan di URL!');
-            //     return;
-            // }
 
             var formData = $('#editForm').serialize(); // Serialize form data
             formData += '&id=' + selectedId; // Add the selectedId to the form data
@@ -813,12 +864,8 @@ if (empty($data)) {
                 }
             });
         });
-
     });
     </script>
-
-
-
 </body>
 
 </html>

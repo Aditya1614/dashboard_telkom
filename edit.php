@@ -187,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['id'])) {
                 <?php elseif ($column === $selectedIdColumn): ?>
                     <label for="<?php echo htmlspecialchars($column) ?>"><?php echo htmlspecialchars($column) ?>:</label>
                     <input type="text" id="<?php echo htmlspecialchars($column) ?>"
-                        value="<?php echo htmlspecialchars($item[$column]) ?>" disabled class="form-control not-editable">
+                        value="<?php echo htmlspecialchars($item[$column]) ?>" disabled class="form-control not-editable forbidden-cursor">
                     <input type="hidden" name="<?php echo htmlspecialchars($column) ?>"
                         value="<?php echo htmlspecialchars($item[$column]) ?>">
                 <?php else: ?>
