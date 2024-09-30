@@ -111,7 +111,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['columns'])) {
         echo "<table class='table'>";
         echo "<thead><tr>";
         foreach ($selectedColumns as $column) {
-            echo "<th>$column</th>";
+            echo "<th>";
+            echo $column;
+            echo "<button class='btn btn-link'><a href='?sort=$column&order=asc&page=$page$searchParams'><i class='fas fa-sort-up'></i></a></button>";
+            echo "<button class='btn btn-link'><a href='?sort=$column&order=desc&page=$page$searchParams'><i class='fas fa-sort-down'></i></a></button>";
+            echo "</th>";
         }
         echo "<th>Action</th>";
         echo "</tr></thead><tbody>";

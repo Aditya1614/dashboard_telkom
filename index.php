@@ -137,7 +137,6 @@ while ($row = $columnResult->fetch_assoc()) {
 }
 
 // Set kolom ID yang dipilih
-// Set kolom ID yang dipilih
 if (isset($_POST['selected_id_column'])) {
     $_SESSION['selected_id_column'] = $_POST['selected_id_column'];
     $selectedIdColumn = $_POST['selected_id_column'];
@@ -311,6 +310,25 @@ while ($row = $dataResult->fetch_assoc()) {
     $data[] = $row;
 }
 
+// Get the sort parameter from the URL
+$sort = isset($_GET['sort']) ? $_GET['sort'] : null;
+$order = isset($_GET['order']) ? $_GET['order'] : 'asc';
+
+// Validate the sort parameter to prevent SQL injection
+if ($sort && in_array($sort, $columnNames)) {
+
+    // Sort the data based on the value of the sort column
+    $sql = "SELECT " . implode(',', $selectedColumns) . " FROM $currentTable" . $searchQuery . " ORDER BY $sort $order LIMIT $limit OFFSET $offset";
+    // Execute the query and get the results
+    $result = $conn->query($sql);
+    $data = array();
+    while ($row = $result->fetch_assoc()) {
+        $data[] = $row;
+    }
+} else {
+    $sql = "SELECT " . implode(',', $selectedColumns) . " FROM $currentTable" . $searchQuery . " LIMIT $limit OFFSET $offset";
+}
+
 $conn->close();
 ?>
 <!DOCTYPE html>
@@ -322,6 +340,7 @@ $conn->close();
     <title>Bike Sharing Data</title>
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
     body {
         font-family: Arial, sans-serif;
@@ -550,6 +569,21 @@ $conn->close();
     .forbidden-cursor {
         cursor: not-allowed;
     }
+
+    .column-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .sort-buttons {
+        display: flex;
+        flex-direction: column;
+        /* margin-left: px; */
+    }
+    .sort-buttons .btn {
+        padding: 0;
+        margin: 0;
+    }
     </style>
 </head>
 
@@ -656,7 +690,15 @@ if (empty($data)) {
     echo "<thead>";
     echo "<tr>";
     foreach ($selectedColumns as $column) {
-        echo "<th>$column</th>";
+        echo "<th>";
+        echo "<div class='column-header'>";
+    echo $column;
+    echo "<div class='sort-buttons'>";
+    echo "<button class='btn btn-link'><a href='?sort=$column&order=asc&page=$page$searchParams'><i class='fas fa-sort-up'></i></a></button>";
+    echo "<button class='btn btn-link'><a href='?sort=$column&order=desc&page=$page$searchParams'><i class='fas fa-sort-down'></i></a></button>";
+    echo "</div>";
+    echo "</div>";
+    echo "</th>";
     }
     echo "<th>Action</th>";
     echo "</tr>";
