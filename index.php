@@ -573,16 +573,25 @@ $conn->close();
     .column-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
+        padding: 0;
+        gap: 5px;
     }
+
     .sort-buttons {
         display: flex;
         flex-direction: column;
-        /* margin-left: px; */
+        margin: left 0;
     }
+
     .sort-buttons .btn {
         padding: 0;
         margin: 0;
+        line-height: 1;
+    }
+
+    .sort-buttons .btn a {
+        color: white;
     }
     </style>
 </head>
