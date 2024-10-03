@@ -75,6 +75,7 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
 <head>
     <meta charset="UTF-8">
     <title>Admin Notification Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
     body {
         font-family: Arial, sans-serif;
@@ -84,14 +85,14 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
         background-color: #f4f4f4;
     }
 
-    .container {
+    /* .container {
         max-width: 800px;
         margin: auto;
         background: white;
         padding: 20px;
         border-radius: 5px;
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
+    } */
 
     h1,
     h2 {
@@ -158,10 +159,10 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     }
 
     .action-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
 
     .resend-btn,
     .delete-btn {
@@ -192,6 +193,33 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     .delete-btn:hover {
         background-color: #d32f2f;
     }
+
+    .send-btn,
+    .home-btn {
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1em;
+        text-decoration: none;
+        color: white;
+    }
+
+    .send-btn {
+        background-color: #4CAF50;
+    }
+
+    .send-btn:hover {
+        background-color: #45a049;
+    }
+
+    .home-btn {
+        background-color: #4CAF50;
+    }
+
+    .home-btn:hover {
+        background-color: #45a049;
+    }
     </style>
 </head>
 
@@ -202,7 +230,10 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
         <input type="text" id="subject" name="subject" placeholder="Enter subject" required><br><br>
         <label for="message">Message:</label>
         <textarea name="message" placeholder="Enter your notification message" required></textarea><br>
-        <button type="submit">Send Notification</button>
+        <div class="button-container">
+            <button type="submit" class="send-btn">Send Notification</button>
+            <a href="index.php" class="home-btn">Back to Home</a>
+        </div>
     </form>
 
     <h2>Sent Notifications</h2>
@@ -223,19 +254,20 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
             <td><?php echo implode(', ', $notification['sent_to']); ?></td>
             <td><?php echo $notification['timestamp']; ?></td>
             <td>
-            <div class="action-buttons">
-                <?php foreach ($notification['sent_to'] as $email): ?>
-                <form action="" method="get" style="display:inline;">
-                    <input type="hidden" name="index" value="<?php echo $index; ?>">
-                    <button type="submit" name="resend" value="<?php echo $email; ?>">Resend to
-                        <?php echo $email; ?></button>
-                </form>
-                <?php endforeach; ?>
+                <div class="action-buttons">
+                    <?php foreach ($notification['sent_to'] as $email): ?>
+                    <form action="" method="get" style="display:inline;">
+                        <input type="hidden" name="index" value="<?php echo $index; ?>">
+                        <button type="submit" name="resend" value="<?php echo $email; ?>">Resend to
+                            <?php echo $email; ?></button>
+                    </form>
+                    <?php endforeach; ?>
             </td>
             <td>
                 <form action="" method="get"
-                    onsubmit="return confirm('Are you sure you want to delete this notification?');">
-                    <button type="submit" name="delete" value="<?php echo $index; ?>" class="delete-btn">Delete</button>
+                    ><button type="button" class="delete-btn" data-bs-toggle="modal" data-bs-target="#deleteModal" data-bs-index="<?php echo $index; ?>">
+                        Delete
+                    </button>
                 </form>
                 </div>
             </td>
@@ -245,6 +277,23 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     <?php else: ?>
     <p>No notifications sent yet.</p>
     <?php endif; ?>
+
+    
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    var deleteModal = document.getElementById('deleteModal')
+    deleteModal.addEventListener('show.bs.modal', function(event) {
+        var button = event.relatedTarget
+        var index = button.getAttribute('data-bs-index')
+        var confirmDeleteButton = deleteModal.querySelector('#confirmDelete')
+        confirmDeleteButton.onclick = function() {
+            window.location.href = "?delete=" + index
+        }
+    })
+    </script>
+
 </body>
 
 </html>
