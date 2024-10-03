@@ -802,6 +802,11 @@ if (empty($data)) {
         <a href="login.php">Login</a>
         <?php endif; ?>
     </div>
+    <?php if ($adminAccess) : ?>
+    <form action="notifications.php" method="get">
+        <button type="submit">Go to Notification Page</button>
+    </form>
+    <?php endif; ?>
 
     <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
