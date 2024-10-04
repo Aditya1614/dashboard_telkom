@@ -664,10 +664,22 @@ $conn->close();
         font-size: 16px;
         color: #666;
     }
+
+    .notification-button-form {
+    position: absolute;
+    top: 10px; /* Sesuaikan nilai ini untuk posisi vertikal */
+    right: 10px; /* Sesuaikan nilai ini untuk posisi horizontal */
+}
     </style>
 </head>
 
 <body>
+
+<?php if ($adminAccess) : ?>
+    <form action="notifications.php" method="get" class="notification-button-form">
+        <button type="submit">Go to Notification Page</button>
+    </form>
+<?php endif; ?>
     <h1>Anda masuk sebagai: <?php echo $loggedIn ? $_SESSION['user'] : 'Visitor'; ?></h1>
 
     <div class="form-container">
@@ -873,11 +885,6 @@ if (empty($data)) {
         <a href="login.php">Login</a>
         <?php endif; ?>
     </div>
-    <?php if ($adminAccess) : ?>
-    <form action="notifications.php" method="get">
-        <button type="submit">Go to Notification Page</button>
-    </form>
-    <?php endif; ?>
 
     <h2>Upload File</h2>
     <form action="upload.php" method="post" enctype="multipart/form-data" id="uploadForm">
