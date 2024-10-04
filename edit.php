@@ -1,6 +1,7 @@
 <?php
 session_start();
 include 'db_connect.php';
+include 'functions.php';
 
 // Handle the session and fetch selectedColumns
 $selectedColumns = isset($_SESSION['selectedColumns']) ? $_SESSION['selectedColumns'] : array();
@@ -39,26 +40,11 @@ if (is_null($selectedIdValue)) {
 }
 
 
-// Check if the selected column is unique
-$sqlCheckUnique = "SELECT 
-    CASE 
-        WHEN COUNT(*) = COUNT(DISTINCT $selectedIdColumn) THEN 'Unique' 
-        ELSE 'Not Unique' 
-    END AS uniqueness_check 
-FROM $currentTable;";
-
-$resultCheck = $conn->query($sqlCheckUnique);
-
-if ($resultCheck && $row = $resultCheck->fetch_assoc()) {
-    if ($row['uniqueness_check'] === 'Not Unique') {
-        echo "<script>alert('Kolom yang dipilih untuk ID tidak unik. Silakan pilih kolom lain.'); window.location.href='index.php';</script>";
-        exit();
-    }
+if (!isUniqueIdColumn($conn, $currentTable, $selectedIdColumn)) {
+    echo "<script>alert('Kolom yang dipilih untuk ID tidak unik. Silakan pilih kolom lain.'); window.location.href='index.php';</script>";
+    exit();
 }
 
-if (!$resultCheck) {
-    die("Error on uniqueness check query: " . $conn->error);
-}
 
 // Ensure the selectedIdValue is quoted properly
 $sql = "SELECT * FROM $currentTable WHERE $selectedIdColumn = ?";

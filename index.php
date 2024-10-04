@@ -9,6 +9,7 @@ $role = $loggedIn ? $_SESSION['role'] : null;
 $adminAccess = ($role === 'admin');
 
 include 'db_connect.php';
+include 'functions.php';
 
 // Handle search form
 if (isset($_POST['searchColumn']) && isset($_POST['searchValue'])) {
@@ -43,28 +44,29 @@ $jsonFilePath = 'selected_columns.json';
 if (isset($_POST['table'])) {
     $currentTable = $_POST['table'];
     $_SESSION['currentTable'] = $currentTable;
-} elseif (isset($_SESSION['currentTable'])) {
-    $currentTable = $_SESSION['currentTable'];
+// } elseif (isset($_SESSION['currentTable'])) {
+//     $currentTable = $_SESSION['currentTable'];
 } else {
-    // Jika tidak ada tabel yang dipilih dan tidak ada dalam session, ambil tabel terakhir yang diupdate
-    if (file_exists($jsonFilePath)) {
-        $jsonData = file_get_contents($jsonFilePath);
-        $selectedColumnsData = json_decode($jsonData, true);
+    $currentTable = getCurrentTable(); // dari functions.php
+    // // Jika tidak ada tabel yang dipilih dan tidak ada dalam session, ambil tabel terakhir yang diupdate
+    // if (file_exists($jsonFilePath)) {
+    //     $jsonData = file_get_contents($jsonFilePath);
+    //     $selectedColumnsData = json_decode($jsonData, true);
 
-        // Urutkan berdasarkan updated_at
-        usort($selectedColumnsData, function($a, $b) {
-            return strtotime($b['updated_at']) - strtotime($a['updated_at']);
-        });
+    //     // Urutkan berdasarkan updated_at
+    //     usort($selectedColumnsData, function($a, $b) {
+    //         return strtotime($b['updated_at']) - strtotime($a['updated_at']);
+    //     });
 
-        // Ambil tabel dengan updated_at terakhir
-        if (!empty($selectedColumnsData)) {
-            $currentTable = $selectedColumnsData[0]['table_name'];
-        } else {
-            $currentTable = 'days'; // Default tabel jika file kosong
-        }
-    } else {
-        $currentTable = 'days'; // Default tabel jika file JSON tidak ada
-    }
+    //     // Ambil tabel dengan updated_at terakhir
+    //     if (!empty($selectedColumnsData)) {
+    //         $currentTable = $selectedColumnsData[0]['table_name'];
+    //     } else {
+    //         $currentTable = 'days'; // Default tabel jika file kosong
+    //     }
+    // } else {
+    //     $currentTable = 'days'; // Default tabel jika file JSON tidak ada
+    // }
 }
 
 // Ambil kolom dari tabel yang dipilih
@@ -593,6 +595,75 @@ $conn->close();
     .sort-buttons .btn a {
         color: white;
     }
+
+    .upload-container {
+        width: 50%;
+        margin: 40px auto;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .upload-container h2 {
+        margin-bottom: 20px;
+    }
+
+    .drag-area {
+        width: 100%;
+        padding: 20px;
+        border: 2px dashed #4CAF50;
+        border-radius: 10px;
+        background-color: #f0f0f0;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .drag-area:hover {
+        background-color: #e9f7ef;
+    }
+
+    .drag-text {
+        color: #666;
+        font-size: 16px;
+    }
+
+    .upload-input {
+        display: none;
+    }
+
+    .file-name {
+        margin-top: 15px;
+        font-size: 14px;
+        color: #333;
+    }
+
+    .upload-button {
+        margin-top: 20px;
+        width: 100%;
+        padding: 10px;
+        background-color: #4CAF50;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    .upload-button:disabled {
+        background-color: #aaa;
+        cursor: not-allowed;
+    }
+
+    .upload-status {
+        margin-top: 20px;
+    }
+
+    .upload-message {
+        font-size: 16px;
+        color: #666;
+    }
     </style>
 </head>
 
@@ -808,6 +879,22 @@ if (empty($data)) {
     </form>
     <?php endif; ?>
 
+    <h2>Upload File</h2>
+    <form action="upload.php" method="post" enctype="multipart/form-data" id="uploadForm">
+        <div class="drag-area" id="dragArea">
+            <span class="drag-text">Drag & Drop atau Klik untuk Pilih File CSV/Excel</span>
+            <input type="file" name="file" id="fileInput" class="upload-input" accept=".csv, .xlsx">
+        </div>
+        <div class="file-name" id="fileName"></div>
+        <input type="submit" value="Upload" class="upload-button" id="uploadButton" disabled>
+    </form>
+    <div class="upload-status">
+        <?php if (isset($_SESSION['upload_status'])) : ?>
+        <p class="upload-message"><?= $_SESSION['upload_status'] ?></p>
+        <?php endif; ?>
+    </div>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
@@ -919,6 +1006,47 @@ if (empty($data)) {
                     alert('Gagal menyimpan perubahan. Silakan coba lagi.');
                 }
             });
+        });
+    });
+
+    // upload excel/csv
+    document.addEventListener('DOMContentLoaded', function() {
+        const dragArea = document.getElementById('dragArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileNameDisplay = document.getElementById('fileName');
+        const uploadButton = document.getElementById('uploadButton');
+
+        // Klik untuk memilih file
+        dragArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        // Ketika file dipilih
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files.length > 0) {
+                const fileName = fileInput.files[0].name;
+                fileNameDisplay.textContent = 'File dipilih: ' + fileName;
+                uploadButton.disabled = false; // Aktifkan tombol upload
+            }
+        });
+
+        // Drag-and-drop event
+        dragArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dragArea.style.backgroundColor = '#e9f7ef';
+        });
+
+        dragArea.addEventListener('dragleave', function() {
+            dragArea.style.backgroundColor = '#f0f0f0';
+        });
+
+        dragArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dragArea.style.backgroundColor = '#f0f0f0';
+            const file = e.dataTransfer.files[0];
+            fileInput.files = e.dataTransfer.files; // Pasang file ke input
+            fileNameDisplay.textContent = 'File dipilih: ' + file.name;
+            uploadButton.disabled = false; // Aktifkan tombol upload
         });
     });
     </script>
